@@ -1,5 +1,7 @@
 # Messages.app OTP codes - Alfred Workflow
 
+![Screenshot](https://github.com/hatarist/alfred-messages-otp/assets/2741725/f08df848-6c12-4c7b-93bf-c79e4cdfd604)
+
 
 ## Description
 
@@ -14,7 +16,8 @@ Then, you may select the OTP code, press Enter and it will be pasted to wherever
 
 ## Install
 
-Download the latest .alfred-workflow file from the Releases section and open it. it should be imported to Alfred.
+Download the latest .alfred-workflow file from the [Releases](https://github.com/hatarist/alfred-messages-otp/releases/latest) section and open it. it should be imported to Alfred.
+
 
 ## Usage
 
@@ -22,6 +25,7 @@ Press a hotkey (`⌘⌥⌃\` by default) or open Alfred and type `otp`. Alfred w
 Press Enter on the selected code to paste the code.
 
 To change the hotkey/keyword, edit the blocks in the imported workflow.
+
 
 ## Tweaking
 

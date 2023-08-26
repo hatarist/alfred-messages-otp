@@ -29,7 +29,7 @@ cmd = """sqlite3 ~/Library/Messages/chat.db -separator $'\t' -newline '\r'"""
 # OTP_PATTERN = r'\b(\d{4,8})\b'
 OTP_PATTERN = re.compile(
     r"""
-    (?:^|\s)\b
+    (?:^|\s|G-)\b
     (\d{4,8})   # OTP
     (?!  # isn't followed by:
     # ' USD' or '.12 USD'
