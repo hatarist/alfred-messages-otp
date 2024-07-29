@@ -1,29 +1,39 @@
 #!/usr/bin/env python3
-import subprocess, json, re, datetime
+import codecs, datetime, json, re, subprocess
 
 
-SQL = b"""
+"""
+Make sure to grant Alfred access: System Preferences - Privacy & Security - Full Disk Access.
+If trying to debug, grant Full Disk Access to iTerm (or whatever), as well.
+"""
+
+
+SQL = """
 SELECT
     name,
     created_at,
-    text
+    text,
+    body
 FROM (
     SELECT
         message.rowid AS id,
         handle.uncanonicalized_id AS name,
-        datetime(message.date/1000000000 + strftime("%s", "2001-01-01") ,"unixepoch","localtime") AS created_at,
-        message.text
+        datetime(message.date/1000000000 + strftime('%s', '2001-01-01') ,'unixepoch','localtime') AS created_at,
+        hex(message.text) AS text,
+        hex(message.attributedBody) AS body
     FROM message
     LEFT JOIN handle ON message.handle_id = handle.rowid
     ORDER BY message.rowid DESC
-    LIMIT 20
+    LIMIT {0}
 )
 WHERE
-    created_at > datetime("now","-8 hours","localtime")
+    1
+    --AND created_at > datetime('now','-8 hours','localtime')
+    AND name != '' AND (text != '' OR body != '')
 ;
 """
 
-cmd = """sqlite3 ~/Library/Messages/chat.db -separator $'\t' -newline '\r'"""
+cmd = """sqlite3 ~/Library/Messages/chat.db -separator $'\t' -newline '\n'"""
 
 
 # OTP_PATTERN = r'\b(\d{4,8})\b'
@@ -38,6 +48,11 @@ OTP_PATTERN = re.compile(
 
     # (dot and) any A-Z/0-9 character
     \.?\w
+
+    |
+
+    # (comma and) any A-Z/0-9 character
+    ,?\w
     )
     """,
     re.VERBOSE
@@ -84,16 +99,65 @@ def parse_otp(text):
     return results[0]
 
 
-def get_latest_messages():
+def get_messages(limit=20):
     p = subprocess.Popen([cmd], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
-    data = p.communicate(input=SQL)[0].decode()
-    messages = data.strip().split('\r')
+    sql = SQL.format(limit).encode()
+    data = p.communicate(input=sql)[0].decode()
+
+    messages = data.rstrip('\r\n').split('\n')
 
     results = []
 
     for message in messages:
-        name, dt, text = message.split('\t')
+        # print(message)
+        parts = message.split('\t')
+
+        if len(parts) == 3:
+            name, dt, text = parts
+
+            text = codecs.decode(text, 'hex').decode('utf-8')
+
+        elif len(parts) == 4:
+            name, dt, text, body = parts
+
+            if not text:
+                # deciphering serialized craziness
+                payload = codecs.decode(body, 'hex')
+
+                try:
+                    text = payload.split(b"NSString")[1]
+                    text = text[5:]
+                    # shamelessly stolen from https://github.com/niftycode/imessage_reader/blob/c46379f6af0349ec9605fbb8d5e0c89db3913f12/imessage_reader/fetch_data.py#L74
+                    if text[0] == 129:
+                        length = int.from_bytes(text[1:3], "little")
+                        text = text[3: length + 3]
+                    else:
+                        length = text[0]
+                        text = text[1: length + 1]
+                    text = text.decode()
+
+                except Exception as e:
+                    print("exception while trying to read attributedBody:", e)
+                    continue
+            else:
+                text = codecs.decode(text, 'hex').decode('utf-8')
+        
+        else:
+            # print('wtf? parts:', parts)
+            continue
+
         dt = datetime.datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+        
+        result = (name, dt, text)
+        results.append(result)
+
+    return results
+
+
+def get_latest_messages():
+    messages = get_messages()
+    results = []
+    for name, dt, text in messages:
         time_ago = humanize_dt(dt)
 
         otp = parse_otp(text)
